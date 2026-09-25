@@ -6,52 +6,88 @@ The **NYC Taxi Operations Intelligence Pipeline** is an end-to-end, trustworthy,
 
 ---
 
-## 2. End-to-End Pipeline Flow
+## 2. End-to-End Workflow Diagram
+
+```mermaid
+flowchart TD
+    subgraph RAW_SOURCES["RAW SOURCES"]
+        TP["Trip Parquet<br/>(yellow_tripdata_2026-07.parquet)"]
+        ZL["Zone Lookup<br/>(taxi_zone_lookup.csv)"]
+    end
+
+    TP --> INGEST["INGEST<br/>(load_trip_data, load_zone_data)"]
+    ZL --> INGEST
+    INGEST --> VALIDATE{"VALIDATE<br/>(Schema, Nulls, Keys, Foreign Keys)"}
+    
+    VALIDATE -->|PASS| TRANSFORM["TRANSFORM<br/>(Period filter, duration, DQ flags)"]
+    VALIDATE -->|FAIL| STOP1["STOP<br/>+ Log ERROR<br/>+ NO BAD OUTPUT"]
+    
+    TRANSFORM --> MODEL["MODEL<br/>(build_fact_trip, build_dim_zone)"]
+    MODEL --> METRICS["METRICS<br/>(4 Business + 2 DQ KPIs)"]
+    METRICS --> OUT_VAL{"OUTPUT VALIDATION<br/>(Pre-save sanity checks)"}
+    
+    OUT_VAL -->|PASS| PUBLISH["PUBLISH<br/>(Atomic staging .tmp_* -> os.replace)"]
+    OUT_VAL -->|FAIL| STOP2["STOP<br/>+ Abort Write<br/>+ Preserve Existing Output"]
+    
+    PUBLISH --> MANIFEST["MANIFEST + LOGGING<br/>(manifest_2026-07.json, logs/pipeline.log)"]
+
+    style STOP1 fill:#ffdddd,stroke:#cc0000,stroke-width:2px;
+    style STOP2 fill:#ffdddd,stroke:#cc0000,stroke-width:2px;
+    style PUBLISH fill:#ddffdd,stroke:#00aa00,stroke-width:2px;
+    style MANIFEST fill:#ddffdd,stroke:#00aa00,stroke-width:2px;
+```
+
+### Text Flow Representation:
 
 ```text
-       CLI Entrypoint: python run_pipeline.py --run-date 2026-07-31
-                                │
-                                ▼
-                       PIPELINE CONFIG
-             (Resolves reporting period: 2026-07)
-                                │
-                                ▼
-                         RAW INGESTION
-             (Trips: 3,530,109 | Zones: 265 rows)
-                                │
-                                ▼
-                        VALIDATION GATES
-                (Schema, nulls, keys, FK integrity)
-                                │
-                ├── Critical Failure ──► STOP (Log ERROR, Exit 1)
-                │
-                ▼
-                      TRANSFORMATION ENGINE
-           (Filter to 2026-07: 3,530,063 rows, compute duration,
-            flag invalid chronology, validate distances)
-                                │
-                                ▼
-                        RELATIONAL MODEL
-             (fact_trip: 3,530,063 rows | dim_zone: 265 rows)
-                                │
-                                ▼
-                         METRICS ENGINE
-                 (Calculate 4 Business + 2 DQ KPIs)
-                                │
-                                ▼
-                       PRE-PUBLISH SANITY
-                  (Row counts, schema, null keys)
-                                │
-                ├── Critical Failure ──► STOP (No publication, Exit 1)
-                │
-                ▼
-                    ATOMIC PUBLISH ENGINE
-            (Write to staging -> atomic POSIX replace)
-                                │
-                                ▼
-                      RUN MANIFEST & LOGS
-          (Write JSON manifest, output terminal summary, Exit 0)
+                 RAW SOURCES
+                     │
+            ┌────────┴────────┐
+            │                 │
+            ▼                 ▼
+       Trip Parquet      Zone Lookup
+            │                 │
+            └────────┬────────┘
+                     │
+                     ▼
+                  INGEST
+                     │
+                     ▼
+                 VALIDATE
+                     │
+              ┌──────┴──────┐
+              │             │
+            PASS          FAIL
+              │             │
+              ▼             ▼
+          TRANSFORM       STOP
+              │          + LOG ERROR
+              ▼          + NO BAD OUTPUT
+            MODEL
+              │
+              ▼
+           METRICS
+              │
+              ▼
+      OUTPUT VALIDATION
+              │
+          ┌───┴───┐
+          │       │
+        PASS     FAIL
+          │       │
+          ▼       ▼
+       PUBLISH   STOP
+          │
+          ▼
+   MANIFEST + LOGGING
 ```
+
+### Core Data Engineering Architecture Principle: Fail-Stop Validation Gates
+
+The architectural flow enforces a foundational data engineering rule: **Validation gates protect downstream stages**.
+- If incoming raw data suffers schema drift, missing mandatory columns (e.g. absent `trip_distance`), invalid data types, or violated referential integrity, the pipeline halts immediately at the validation gate.
+- Critical validation failures **never** reach transformation, relational modeling, metric calculation, or destination publication paths.
+- No partial or corrupted files are written to `data/processed/`, and any previously published valid datasets remain 100% intact and untouched.
 
 ---
 
@@ -95,7 +131,7 @@ $$\text{Pipeline}(\text{Pipeline}(\text{Input}, \text{Period})) = \text{Output}$
 ### Idempotency Mechanics:
 - **Logical Partition Key**: Every output path includes the logical month partition (`YYYY-MM`). Re-running the pipeline targets the exact same partition paths.
 - **No Append Side-Effects**: Parquet and CSV files are completely replaced atomically, ensuring row counts never double upon rerun (`fact_trip` remains exactly `3,530,063` rows).
-- **Bitwise Determinism**: Logical content hashing using SHA-256 over sorted primary keys guarantees that rerun output is bitwise identical.
+- **Bitwise Determinism**: Logical content hashing using SHA-256 over sorted primary keys guarantees that rerun output is bitwise identical across executions.
 
 ---
 

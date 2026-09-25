@@ -23,6 +23,35 @@ The transformation and dimensional modeling layers consume validated raw Parquet
           fact_trip (3,530,063 rows)
 ```
 
+### Relational Entity-Relationship Diagram (Mermaid)
+
+```mermaid
+erDiagram
+    DIM_ZONE ||--o{ FACT_TRIP : "pickup location"
+    DIM_ZONE ||--o{ FACT_TRIP : "dropoff location"
+
+    DIM_ZONE {
+        int LocationID PK
+        string Borough
+        string Zone
+        string service_zone
+    }
+
+    FACT_TRIP {
+        int trip_id PK
+        datetime pickup_datetime
+        datetime dropoff_datetime
+        int pickup_location_id FK
+        int dropoff_location_id FK
+        float trip_distance
+        float trip_duration_minutes
+        boolean is_valid_duration
+        boolean is_valid_location
+        boolean is_valid_distance
+        boolean is_valid_trip
+    }
+```
+
 ---
 
 ## 2. Reporting Period Filtering Logic
