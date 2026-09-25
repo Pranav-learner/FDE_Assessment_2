@@ -1,0 +1,26 @@
+# Python virtual environment
+.venv/
+venv/
+ENV/
+
+# Python cache & bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Data and output
+data/raw/
+data/processed/
+output/*
+!output/.gitkeep
+
+# Jupyter Notebooks checkpoints
+.ipynb_checkpoints/
+
+# Environment variables & secrets
+.env
+*.env
+
+# Logs
+logs/*.log
