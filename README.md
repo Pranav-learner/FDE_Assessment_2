@@ -15,15 +15,25 @@ Raw TLC operational datasets are messy and unmodeled: they contain out-of-period
 
 ---
 
-## 2. Key Stakeholders
+## 2. Key Stakeholders & Users
 
-- **Operations Leadership**: Relies on executive headline KPIs (Trip Volume, Median Duration, Average Distance) for monthly performance reviews.
-- **Operations & Fleet Planning**: Utilizes location-level dimensional trip models (`fact_trip`, `dim_zone`) to analyze spatial demand and route efficiency.
-- **Data Engineering & Quality Assurance**: Governs data contracts, validation gate enforcement, schema stability, and idempotency guarantees.
+- **Operations Leadership**: Relies on executive headline KPIs (Trip Volume, Median Duration, Average Distance) for monthly performance reviews and strategic capacity planning.
+- **Operations & Fleet Planning**: Utilizes location-level dimensional trip models (`fact_trip`, `dim_zone`) to analyze spatial demand distribution, route efficiency, and zone coverage.
+- **Data Engineering & Quality Assurance**: Governs data contracts, validation gate enforcement, schema stability, idempotency, and auditability.
 
 ---
 
-## 3. Business & Data Quality KPIs
+## 3. Decisions the Output Supports
+
+The published dimensional tables (`fact_trip`, `dim_zone`), KPI metrics, and run manifests directly empower operational leadership to make the following decisions:
+1. **Fleet Dispatch & Capacity Planning**: Deciding how and when to deploy vehicle supply based on total volume demand (3,530,063 trips) and pickup zone concentrations (e.g., JFK Airport, Midtown Center).
+2. **Network Throughput & Congestion Benchmarking**: Deciding whether operational transit times are deteriorating by comparing robust efficiency metrics (14.17 min median duration, 5.55 mi average distance) across monthly cohorts.
+3. **Data Quality & Contract Governance**: Deciding whether operational data is trustworthy for regulatory reporting and executive visibility, backed by verifiable SLA metrics (100% location referential validity, 0.0000283% timestamp anomaly rate).
+4. **Automated Pipeline SLA Compliance**: Verifying idempotent execution and atomic publication manifests before downstream consumption in enterprise dashboards.
+
+---
+
+## 4. Business & Data Quality KPIs
 
 | Metric | Target Dimension | Type | July 2026 Result | Presentation Format |
 |---|---|---|---|---|
@@ -36,7 +46,7 @@ Raw TLC operational datasets are messy and unmodeled: they contain out-of-period
 
 ---
 
-## 4. Source Data Systems
+## 5. Source Data Systems
 
 1. **Trip Activity Records**: NYC TLC Yellow Taxi Monthly Trip Records (Parquet format)
    - Source size: `3,530,109` records
@@ -47,7 +57,7 @@ Raw TLC operational datasets are messy and unmodeled: they contain out-of-period
 
 ---
 
-## 5. Pipeline Architecture
+## 6. Pipeline Architecture
 
 ```text
        CLI: python run_pipeline.py --run-date 2026-07-31
@@ -96,7 +106,7 @@ Raw TLC operational datasets are messy and unmodeled: they contain out-of-period
 
 ---
 
-## 6. Setup & Installation
+## 7. Setup & Installation
 
 The project requires Python 3.10+ (tested on Python 3.12 and 3.14).
 
@@ -107,7 +117,11 @@ cd nyc-taxi-fde-pipeline
 
 # Create and activate virtual environment
 python -m venv .venv
+
+# If using bash/zsh:
 source .venv/bin/activate
+# If using fish shell:
+source .venv/bin/activate.fish
 
 # Install dependencies
 pip install -r requirements.txt
@@ -115,7 +129,7 @@ pip install -r requirements.txt
 
 ---
 
-## 7. Execution: One-Command Runner
+## 8. Execution: One-Command Runner
 
 Execute the entire end-to-end pipeline with a single command specifying the target run date:
 
@@ -131,7 +145,7 @@ python run_pipeline.py --run-date 2026-07-31
 
 ---
 
-## 8. Expected Outputs & Artifact Locations
+## 9. Expected Outputs & Artifact Locations
 
 Upon successful completion, artifacts are atomically published to:
 
@@ -145,7 +159,7 @@ Upon successful completion, artifacts are atomically published to:
 
 ---
 
-## 9. Reliability & Production Behaviors
+## 10. Reliability & Production Behaviors
 
 ### 1. Atomic Staging & Publication
 Outputs are never written directly into production destination paths. Each artifact is written to isolated temporary staging files (`.tmp_*`), checked for completeness, and committed via atomic POSIX directory replacement (`os.replace`). Readers never observe partial, corrupted, or mid-write datasets.
@@ -171,12 +185,15 @@ Rather than silently dropping the 1 trip record with a negative trip duration (d
 
 ---
 
-## 10. Automated Test Suite
+## 11. Automated Test Suite
 
 The test suite covers unit, integration, validation, retry, idempotency, failure, and CLI runner scenarios:
 
 ```bash
+# Run using the active virtual environment:
 pytest tests/ -v
+# Or directly via venv path:
+.venv/bin/pytest tests/ -v
 ```
 
 **Test Coverage Summary (122 Tests Passed)**:
@@ -194,13 +211,12 @@ pytest tests/ -v
 
 ---
 
-## 11. Documentation
+## 12. Documentation
 
 Detailed architectural and engineering documentation is available in `docs/`:
+- `docs/source_map.md`: Source data mapping, ingestion lineage, and key relationships.
+- `docs/architecture.md`: Architectural blueprints, flow diagrams, atomic staging, idempotency, and logging.
+- `docs/data_model.md`: Reporting period definitions, quality flags, schema, and dimensional models (`fact_trip`, `dim_zone`).
+- `docs/metrics_definition.md`: Mathematical definitions, populations, and traceability matrix for all 6 KPIs.
+- `docs/retry_and_failure_handling.md`: Transient failure handling, exponential backoff, retry limits, and controlled fail-stop gates.
 - `docs/final_pipeline_evidence.md`: Comprehensive final evidence report with complete findings.
-- `docs/pipeline_architecture.md`: Architectural blueprints and system flow diagrams.
-- `docs/metrics_definition.md`: Mathematical definitions and business logic for all KPIs.
-- `docs/idempotency.md`: Mathematical proof of idempotent partition processing.
-- `docs/controlled_failure.md`: Verification of fail-stop behavior during critical anomalies.
-- `docs/retry_and_failure_handling.md`: Transient failure handling and simulation protocols.
-- `docs/source_map.md` & `docs/retrieval_manifest.md`: Source lineage and ingestion verification.

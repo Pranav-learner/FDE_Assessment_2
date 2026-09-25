@@ -20,10 +20,9 @@ from unittest.mock import patch, MagicMock
 import pytest
 import pandas as pd
 
-from run_pipeline import main, parse_run_date
+from run_pipeline import main, parse_run_date, run
 from src.config import PipelineConfig, create_config
 from src.output import compute_fact_trip_fingerprint
-from src.pipeline import run
 from src.validate import ValidationError
 
 
@@ -188,15 +187,15 @@ def test_pipeline_stage_order_is_correct(synthetic_runner_environment):
 
     call_order = []
 
-    with patch("src.pipeline.load_trip_data", side_effect=lambda *args, **kwargs: call_order.append("ingest") or pd.DataFrame()), \
-         patch("src.pipeline.load_zone_data", side_effect=lambda *args, **kwargs: pd.DataFrame()), \
-         patch("src.pipeline.validate_sources", side_effect=lambda *args, **kwargs: call_order.append("validate") or MagicMock(passed=True, warnings=[])), \
-         patch("src.pipeline.transform_trip_data", side_effect=lambda *args, **kwargs: call_order.append("transform") or pd.DataFrame()), \
-         patch("src.pipeline.build_dim_zone", side_effect=lambda *args, **kwargs: pd.DataFrame()), \
-         patch("src.pipeline.build_fact_trip", side_effect=lambda *args, **kwargs: call_order.append("model") or pd.DataFrame()), \
-         patch("src.pipeline.calculate_metrics", side_effect=lambda *args, **kwargs: call_order.append("metrics") or []), \
-         patch("src.pipeline.metrics_to_dataframe", side_effect=lambda *args, **kwargs: pd.DataFrame()), \
-         patch("src.pipeline.publish_outputs", side_effect=lambda *args, **kwargs: call_order.append("publish") or {}):
+    with patch("run_pipeline.load_trip_data", side_effect=lambda *args, **kwargs: call_order.append("ingest") or pd.DataFrame()), \
+         patch("run_pipeline.load_zone_data", side_effect=lambda *args, **kwargs: pd.DataFrame()), \
+         patch("run_pipeline.validate_sources", side_effect=lambda *args, **kwargs: call_order.append("validate") or MagicMock(passed=True, warnings=[])), \
+         patch("run_pipeline.transform_trip_data", side_effect=lambda *args, **kwargs: call_order.append("transform") or pd.DataFrame()), \
+         patch("run_pipeline.build_dim_zone", side_effect=lambda *args, **kwargs: pd.DataFrame()), \
+         patch("run_pipeline.build_fact_trip", side_effect=lambda *args, **kwargs: call_order.append("model") or pd.DataFrame()), \
+         patch("run_pipeline.calculate_metrics", side_effect=lambda *args, **kwargs: call_order.append("metrics") or []), \
+         patch("run_pipeline.metrics_to_dataframe", side_effect=lambda *args, **kwargs: pd.DataFrame()), \
+         patch("run_pipeline.publish_outputs", side_effect=lambda *args, **kwargs: call_order.append("publish") or {}):
 
         run(cfg)
 

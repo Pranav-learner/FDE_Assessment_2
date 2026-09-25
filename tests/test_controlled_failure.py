@@ -22,7 +22,7 @@ import pandas as pd
 from src.config import PipelineConfig
 from src.logger import get_logger
 from src.output import compute_fact_trip_fingerprint
-from src.pipeline import run
+from run_pipeline import run
 from src.retry import is_retryable_error, retry_call
 from src.validate import ValidationError
 
@@ -112,7 +112,7 @@ def test_validation_error_message_identifies_missing_column(failure_config: Pipe
 
 def test_transformation_does_not_execute_on_validation_failure(failure_config: PipelineConfig):
     """Test 3: Verify transform_trip_data is never called when validation fails."""
-    with patch("src.pipeline.transform_trip_data") as mock_transform:
+    with patch("run_pipeline.transform_trip_data") as mock_transform:
         with pytest.raises(ValidationError):
             run(failure_config)
         mock_transform.assert_not_called()
@@ -124,8 +124,8 @@ def test_transformation_does_not_execute_on_validation_failure(failure_config: P
 
 def test_model_does_not_execute_on_validation_failure(failure_config: PipelineConfig):
     """Test 4: Verify build_fact_trip and build_dim_zone are never called when validation fails."""
-    with patch("src.pipeline.build_fact_trip") as mock_fact, \
-         patch("src.pipeline.build_dim_zone") as mock_dim:
+    with patch("run_pipeline.build_fact_trip") as mock_fact, \
+         patch("run_pipeline.build_dim_zone") as mock_dim:
         with pytest.raises(ValidationError):
             run(failure_config)
         mock_fact.assert_not_called()
@@ -138,7 +138,7 @@ def test_model_does_not_execute_on_validation_failure(failure_config: PipelineCo
 
 def test_metrics_do_not_execute_on_validation_failure(failure_config: PipelineConfig):
     """Test 5: Verify calculate_metrics is never called when validation fails."""
-    with patch("src.pipeline.calculate_metrics") as mock_metrics:
+    with patch("run_pipeline.calculate_metrics") as mock_metrics:
         with pytest.raises(ValidationError):
             run(failure_config)
         mock_metrics.assert_not_called()
@@ -334,7 +334,7 @@ def test_negative_trip_distance_halts_pipeline(
         metrics_output_dir=project_root / "data" / "processed" / "metrics",
     )
 
-    with patch("src.pipeline.transform_trip_data") as mock_transform:
+    with patch("run_pipeline.transform_trip_data") as mock_transform:
         with pytest.raises(ValidationError) as exc_info:
             run(cfg)
 
